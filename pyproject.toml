@@ -1,0 +1,13 @@
+[project]
+name = "Py9"
+version = "0.1.0"
+authors = [
+  { name="Emil Tomczyk", email="emruemru1@gmail.com" },
+]
+description = "Library providing interface for P92000 protocol."
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)"
+]
