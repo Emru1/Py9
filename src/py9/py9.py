@@ -707,6 +707,7 @@ class Py9Client(Py9):
             version: str = "9P2000",
     ) -> None:
         super().__init__(ip, port, msize, version)
+        self.is_connected: bool = False
 
     def connect(self) -> None:
         self.socket.connect((self.ip, self.port))
@@ -721,6 +722,8 @@ class Py9Client(Py9):
             raise Exception(
                 f"Server has responded with version {data['version'].decode()}, expected {self._version}"
             )
+
+        self.is_connected = True
 
     def version(self) -> dict:
         self.socket.sendall(self._encode_Tversion())
@@ -803,6 +806,7 @@ class Py9Client(Py9):
         return stats
 
     def __del__(self) -> None:
-        self.socket.shutdown(socket.SHUT_RDWR)
-        self.socket.recv(0)
-        self.socket.close()
+        if self.is_connected:
+            self.socket.shutdown(socket.SHUT_RDWR)
+            self.socket.recv(0)
+            self.socket.close()
