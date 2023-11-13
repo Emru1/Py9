@@ -83,6 +83,7 @@ class Py9:
     class Stat:
         def __init__(
                 self,
+                size: int,
                 type: int,
                 dev: int,
                 qid: int,
@@ -95,6 +96,7 @@ class Py9:
                 gid: str,
                 muid: str,
         ):
+            self.size: int = size
             self.type: int = type
             self.dev: int = dev
             self.qid: Py9.Qid = qid
@@ -109,27 +111,32 @@ class Py9:
 
         @classmethod
         def from_bytes(cls, stat: bytes):
-            type: int = struct.unpack('<H', stat[2:4])[0]
-            dev: int = struct.unpack('<I', stat[4:8])[0]
-            qid: bytes = Py9.Qid.from_bytes(stat[8:21])
-            mode: int = struct.unpack('<I', stat[21:25])[0]
-            atime: int = struct.unpack('<I', stat[25:29])[0]
-            mtime: int = struct.unpack('<I', stat[29:33])[0]
-            length: int = struct.unpack('<Q', stat[33:41])[0]
+            try:
+                size: int = struct.unpack('<H', stat[0:2])[0]
+                type: int = struct.unpack('<H', stat[2:4])[0]
+                dev: int = struct.unpack('<I', stat[4:8])[0]
+                qid: bytes = Py9.Qid.from_bytes(stat[8:21])
+                mode: int = struct.unpack('<I', stat[21:25])[0]
+                atime: int = struct.unpack('<I', stat[25:29])[0]
+                mtime: int = struct.unpack('<I', stat[29:33])[0]
+                length: int = struct.unpack('<Q', stat[33:41])[0]
 
-            _name_offset: int = struct.unpack('<H', stat[41:41 + STR_LEN])[0] + 41 + STR_LEN
-            name: bytes = stat[41 + STR_LEN:_name_offset].decode()
+                _name_offset: int = struct.unpack('<H', stat[41:41 + STR_LEN])[0] + 41 + STR_LEN
+                name: bytes = stat[41 + STR_LEN:_name_offset].decode()
 
-            _uid_offset: int = struct.unpack('<H', stat[_name_offset:_name_offset + STR_LEN])[0] + _name_offset + STR_LEN
-            uid: bytes = stat[_name_offset + STR_LEN:_uid_offset].decode()
+                _uid_offset: int = struct.unpack('<H', stat[_name_offset:_name_offset + STR_LEN])[0] + _name_offset + STR_LEN
+                uid: bytes = stat[_name_offset + STR_LEN:_uid_offset].decode()
 
-            _gid_offset: int = struct.unpack('<H', stat[_uid_offset:_uid_offset + STR_LEN])[0] + _uid_offset + STR_LEN
-            gid: bytes = stat[_uid_offset + STR_LEN:_gid_offset].decode()
+                _gid_offset: int = struct.unpack('<H', stat[_uid_offset:_uid_offset + STR_LEN])[0] + _uid_offset + STR_LEN
+                gid: bytes = stat[_uid_offset + STR_LEN:_gid_offset].decode()
 
-            _muid_offset: int = struct.unpack('<H', stat[_gid_offset:_gid_offset + STR_LEN])[0] + _gid_offset + STR_LEN
-            muid: bytes = stat[_gid_offset + STR_LEN:_muid_offset].decode()
+                _muid_offset: int = struct.unpack('<H', stat[_gid_offset:_gid_offset + STR_LEN])[0] + _gid_offset + STR_LEN
+                muid: bytes = stat[_gid_offset + STR_LEN:_muid_offset].decode()
+            except Exception:
+                raise Exception("Error in parsing stat data. Is provided data a valid stat?")
 
             return cls(
+                size,
                 type,
                 dev,
                 qid,
@@ -780,6 +787,20 @@ class Py9Client(Py9):
 
     def recv(self) -> dict:
         return self._recv(self.socket)
+
+    def read_dir(self, fid: int, offset: int, count: int) -> list[Py9.Stat]:
+        self.socket.sendall(self._encode_Tread(fid, offset, count))
+        pkt: dict = self.recv()
+        data = pkt['data']
+
+        stats: list[Py9.Stat] = []
+        offset = 0
+
+        while offset < len(data):
+            stat = Py9.Stat.from_bytes(data[offset:])
+            offset += stat.size + 2
+            stats.append(stat)
+        return stats
 
     def __del__(self) -> None:
         self.socket.shutdown(socket.SHUT_RDWR)

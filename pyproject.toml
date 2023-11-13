@@ -1,6 +1,6 @@
 [project]
 name = "Py9"
-version = "0.1.1"
+version = "0.1.2"
 authors = [
   { name="Emil Tomczyk", email="emruemru1@gmail.com" },
 ]
