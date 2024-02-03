@@ -4,7 +4,6 @@ from abc import abstractmethod
 import selectors
 import socket
 import struct
-import time
 
 STR_LEN = 2
 
