@@ -804,5 +804,5 @@ class Py9Client(Py9):
 
     def __del__(self) -> None:
         self.socket.shutdown(socket.SHUT_RDWR)
-        time.sleep(1)
+        self.socket.recv(0)
         self.socket.close()
