@@ -327,7 +327,7 @@ class Py9:
                 qid: bytes = data[0:13]
 
                 ret = {
-                    'qid': self.Qid.from_bytes(qid),
+                    'qid': Py9.Qid.from_bytes(qid),
                 }
 
             case self.TRs.Terror:
@@ -381,7 +381,7 @@ class Py9:
 
                 for _ in range(nwqid):
                     qid: bytes = data[offset:offset + 13]
-                    qids.append(self.Qid.from_bytes(qid))
+                    qids.append(Py9.Qid.from_bytes(qid))
                     offset += 13
 
                 ret = {
@@ -402,7 +402,7 @@ class Py9:
                 iounit: int = struct.unpack('<I', data[13:17])[0]
 
                 ret = {
-                    'qid': self.Qid.from_bytes(qid),
+                    'qid': Py9.Qid.from_bytes(qid),
                     'iounit': iounit,
                 }
 
@@ -426,7 +426,7 @@ class Py9:
                 iounit: bytes = data[13:17]
 
                 ret = {
-                    'qid': self.Qid.from_bytes(qid),
+                    'qid': Py9.Qid.from_bytes(qid),
                     'iounit': iounit,
                 }
 
@@ -502,7 +502,7 @@ class Py9:
                 stats: bytes = data[0 + STR_LEN:0 + STR_LEN + stat_len]
 
                 ret = {
-                    'stat': self.Stat.from_bytes(stats),
+                    'stat': Py9.Stat.from_bytes(stats),
                 }
 
             case self.TRs.Twstat:
@@ -524,11 +524,13 @@ class Py9:
     def _encode_packet(
             self,
             type,
-            data: bytes
+            data: bytes,
+            tag: bytes = None,
     ) -> bytes:
         size: bytes = struct.pack('<I', len(data) + 7)
         t: bytes = struct.pack('<B', type.value)
-        tag: bytes = struct.pack('<H', self.get_tag())
+        if not tag:
+            tag: bytes = struct.pack('<H', self.get_tag())
 
         return size + t + tag + data
 
@@ -541,6 +543,15 @@ class Py9:
 
         return self._encode_packet(self.TRs.Tversion, buff)
 
+    def _encode_Rversion(self, tag: int) -> bytes:
+        buff: bytes = b''
+
+        buff += struct.pack('<I', self.msize)
+        buff += struct.pack('<H', len(self._version))
+        buff += self._version.encode()
+
+        return self._encode_packet(self.TRs.Rversion, buff, tag)
+
     def _encode_Tauth(self, afid: int, uname: str, aname: str) -> bytes:
         buff: bytes = b''
 
@@ -549,6 +560,20 @@ class Py9:
         buff += self._encode_string(aname)
 
         return self._encode_packet(self.TRs.Tauth, buff)
+
+    def _encode_Rauth(self, aqid: Qid, tag: int) -> bytes:
+        buff: bytes = b''
+
+        buff += aqid.to_bytes()
+
+        return self._encode_packet(self.TRs.Rauth, tag)
+
+    def _encode_Rerror(self, ename: str, tag: int) -> bytes:
+        buff: bytes = b''
+
+        buff += self._encode_string(ename)
+
+        return self._encode_packet(self.TRs.Rerror, tag)
 
     def _encode_Tflush(
             self,
@@ -559,6 +584,14 @@ class Py9:
         buff += struct.pack('<H', oldtag)
 
         return self._encode_packet(self.TRs.Tflush, buff)
+
+    def _encode_Rflush(
+            self,
+            tag: int
+    ) -> bytes:
+        buff: bytes = b''
+
+        return self._encode_packet(self.TRs.Rflush, buff, tag)
 
     def _encode_Tattach(
             self,
@@ -575,6 +608,17 @@ class Py9:
         buff += self._encode_string(aname)
 
         return self._encode_packet(self.TRs.Tattach, buff)
+
+    def _encode_Rattach(
+            self,
+            qid: Qid,
+            tag: int,
+    ) -> bytes:
+        buff: bytes = b''
+
+        buff += qid.to_bytes()
+
+        return self._encode_packet(self.TRs.Rattach, buff, tag)
 
     def _encode_Twalk(
             self,
@@ -593,6 +637,20 @@ class Py9:
 
         return self._encode_packet(self.TRs.Twalk, buff)
 
+    def _encode_Rwalk(
+            self,
+            nwqids: list[Qid],
+            tag: int,
+    ) -> bytes:
+        buff: bytes = b''
+
+        buff += struct.pack('<I', len(nwqids))
+
+        for nwqid in nwqids:
+            buff += nwqid.to_bytes()
+
+        return self._encode_packet(self.TRs.Rwalk, buff, tag)
+
     def _encode_Topen(
             self,
             fid: int,
@@ -604,6 +662,19 @@ class Py9:
         buff += struct.pack('<B', mode)
 
         return self._encode_packet(self.TRs.Topen, buff)
+
+    def _encode_Ropen(
+            self,
+            qid: Qid,
+            iounit: int,
+            tag: int,
+    ) -> bytes:
+        buff: bytes = b''
+
+        buff += qid.to_bytes()
+        buff += struct.pack('<I', iounit)
+
+        return self._encode_packet(self.TRs.Ropen, buff, tag)
 
     def _encode_Tcreate(
             self,
@@ -621,6 +692,19 @@ class Py9:
 
         return self._encode_packet(self.TRs.Tcreate, buff)
 
+    def _encode_Rcreate(
+            self,
+            qid: Qid,
+            iounit: int,
+            tag: int,
+    ) -> bytes:
+        buff: bytes = b''
+
+        buff += qid.to_bytes()
+        buff += struct.pack('<I', iounit)
+
+        return self._encode_packet(self.TRs.Rcreate, buff, tag)
+
     def _encode_Tread(
             self,
             fid: int,
@@ -634,6 +718,18 @@ class Py9:
         buff += struct.pack('<I', count)
 
         return self._encode_packet(self.TRs.Tread, buff)
+
+    def _encode_Rread(
+            self,
+            data: bytes,
+            tag: int,
+    ) -> bytes:
+        buff: bytes = b''
+
+        buff += struct.pack('<I', len(data))
+        buff += data
+
+        return self._encode_packet(self.TRs.Rread, buff, tag)
 
     def _encode_Twrite(
             self,
@@ -650,6 +746,17 @@ class Py9:
 
         return self._encode_packet(self.TRs.Twrite, buff)
 
+    def _encode_Rwrite(
+            self,
+            count: int,
+            tag: int,
+    ) -> bytes:
+        buff: bytes = b''
+
+        buff += struct.pack('<I', count)
+
+        return self._encode_packet(self.TRs.Rwrite, buff, tag)
+
     def _encode_Tclunk(
             self,
             fid: int,
@@ -659,6 +766,14 @@ class Py9:
         buff += struct.pack('<I', fid)
 
         return self._encode_packet(self.TRs.Tclunk, buff)
+
+    def _encode_Rclunk(
+            self,
+            tag: int
+    ) -> bytes:
+        buff: bytes = b''
+
+        return self._encode_packet(self.TRs.Rclunk, buff, tag)
 
     def _encode_Tremove(
             self,
@@ -670,6 +785,14 @@ class Py9:
 
         return self._encode_packet(self.TRs.Tremove, buff)
 
+    def _encode_Rremove(
+            self,
+            tag: int,
+    ) -> bytes:
+        buff: bytes = b''
+
+        return self._encode_packet(self.TRs.Rremove, buff, tag)
+
     def _encode_Tstat(
             self,
             fid: int,
@@ -679,6 +802,20 @@ class Py9:
         buff += struct.pack('<I', fid)
 
         return self._encode_packet(self.TRs.Tstat, buff)
+
+    def _encode_Rstat(
+            self,
+            stats: list[Stat],
+            tag: int,
+    ) -> bytes:
+        buff: bytes = b''
+
+        buff += struct.pack('<H', len(stats))
+
+        for stat in stats:
+            buff += stat.to_bytes()
+
+        return self._encode_packet(self.TRs.Rstat, buff, tag)
 
     def _encode_Twstat(
             self,
@@ -692,120 +829,14 @@ class Py9:
 
         return self._encode_packet(self.TRs.Tremove, buff)
 
+    def _encode_Rwstat(
+            self,
+            tag: int,
+    ) -> bytes:
+        buff: bytes = b''
+
+        return self._encode_packet(self.TRs.Rremove, buff, tag)
+
     @abstractmethod
     def __del__(self):
         ...
-
-
-class Py9Client(Py9):
-    def __init__(
-            self,
-            ip: str,
-            port: int,
-            msize: int = 32768,
-            version: str = "9P2000",
-    ) -> None:
-        super().__init__(ip, port, msize, version)
-        self.is_connected: bool = False
-
-    def connect(self) -> None:
-        self.socket.connect((self.ip, self.port))
-
-        data = self.version()
-
-        if data['operation'] != self.TRs.Rversion:
-            raise Exception("Server hasn't responded with Rversion")
-        if data['tag'] != 0:
-            raise Exception("Server has responded to Tversion with invali tag")
-        if data['version'].decode() != self._version:
-            raise Exception(
-                f"Server has responded with version {data['version'].decode()}, expected {self._version}"
-            )
-
-        self.is_connected = True
-
-    def version(self) -> dict:
-        self.socket.sendall(self._encode_Tversion())
-        data: dict = self.recv()
-        return data
-
-    def auth(self, afid: int, uname: str, aname: str) -> dict:
-        self.socket.sendall(self._encode_Tauth(afid, uname, aname))
-        data: dict = self.recv()
-        return data
-
-    def flush(self, oldtag: int) -> dict:
-        self.socket.sendall(self._encode_Tflush(oldtag))
-        data: dict = self.recv()
-        return data
-
-    def attach(self) -> dict:
-        self.socket.sendall(self._encode_Tattach())
-        data: dict = self.recv()
-        return data
-
-    def walk(self, fid: int, newfid: int, names: list[str]) -> dict:
-        self.socket.sendall(self._encode_Twalk(fid, newfid, names))
-        data: dict = self.recv()
-        return data
-
-    def open(self, fid: int, mode: int) -> dict:
-        self.socket.sendall(self._encode_Topen(fid, mode))
-        data: dict = self.recv()
-        return data
-
-    def create(self, fid: int, name: str, perm: int, mode: int) -> dict:
-        raise NotImplementedError
-
-    def read(self, fid: int, offset: int, count: int) -> dict:
-        self.socket.sendall(self._encode_Tread(fid, offset, count))
-        data: dict = self.recv()
-        return data
-
-    def write(self, fid: int, offset: int, data: bytes) -> dict:
-        self.socket.sendall(self._encode_Twrite(fid, offset, data))
-        data: dict = self.recv()
-        return data
-
-    def clunk(self, fid: int) -> dict:
-        self.socket.sendall(self._encode_Tclunk(fid))
-        data: dict = self.recv()
-        return data
-
-    def remove(self, fid: int) -> dict:
-        self.socket.sendall(self._encode_Tremove(fid))
-        data: dict = self.recv()
-        return data
-
-    def stat(self, fid: int) -> dict:
-        self.socket.sendall(self._encode_Tstat(fid))
-        data: dict = self.recv()
-        return data
-
-    def wstat(self, fid: int, stat: Py9.Stat) -> dict:
-        self.socket.sendall(self._encode_Twstat(fid, stat))
-        data: dict = self.recv()
-        return data
-
-    def recv(self) -> dict:
-        return self._recv(self.socket)
-
-    def read_dir(self, fid: int, offset: int, count: int) -> list[Py9.Stat]:
-        self.socket.sendall(self._encode_Tread(fid, offset, count))
-        pkt: dict = self.recv()
-        data = pkt['data']
-
-        stats: list[Py9.Stat] = []
-        offset = 0
-
-        while offset < len(data):
-            stat = Py9.Stat.from_bytes(data[offset:])
-            offset += stat.size + 2
-            stats.append(stat)
-        return stats
-
-    def __del__(self) -> None:
-        if self.is_connected:
-            self.socket.shutdown(socket.SHUT_RDWR)
-            self.socket.recv(0)
-            self.socket.close()
