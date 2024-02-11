@@ -1,4 +1,6 @@
-from .py9 import Py9
+from py9 import Py9
+from trs import TRs
+from stat9 import Stat
 
 import socket
 
@@ -19,13 +21,14 @@ class Py9Client(Py9):
 
         data = self.version()
 
-        if data['operation'] != self.TRs.Rversion:
+        if data['operation'] != TRs.Rversion:
             raise Exception("Server hasn't responded with Rversion")
         if data['tag'] != 0:
             raise Exception("Server has responded to Tversion with invali tag")
         if data['version'].decode() != self._version:
             raise Exception(
-                f"Server has responded with version {data['version'].decode()}, expected {self._version}"
+                "Server has responded with version " +
+                f"{data['version'].decode()}, expected {self._version}"
             )
 
         self.is_connected = True
@@ -88,7 +91,7 @@ class Py9Client(Py9):
         data: dict = self.recv()
         return data
 
-    def wstat(self, fid: int, stat: Py9.Stat) -> dict:
+    def wstat(self, fid: int, stat: Stat) -> dict:
         self.socket.sendall(self._encode_Twstat(fid, stat))
         data: dict = self.recv()
         return data
@@ -96,16 +99,16 @@ class Py9Client(Py9):
     def recv(self) -> dict:
         return self._recv(self.socket)
 
-    def read_dir(self, fid: int, offset: int, count: int) -> list[Py9.Stat]:
+    def read_dir(self, fid: int, offset: int, count: int) -> list[Stat]:
         self.socket.sendall(self._encode_Tread(fid, offset, count))
         pkt: dict = self.recv()
         data = pkt['data']
 
-        stats: list[Py9.Stat] = []
+        stats: list[Stat] = []
         offset = 0
 
         while offset < len(data):
-            stat = Py9.Stat.from_bytes(data[offset:])
+            stat = Stat.from_bytes(data[offset:])
             offset += stat.size + 2
             stats.append(stat)
         return stats

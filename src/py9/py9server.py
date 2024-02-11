@@ -1,4 +1,5 @@
 from py9 import Py9
+from trs import TRs
 
 import socket
 import selectors
@@ -34,7 +35,7 @@ class Py9Server(Py9):
             if len(self.buffer) < size:
                 return None
 
-            operation: self.TRs = self.TRs(
+            operation: TRs = TRs(
                 struct.unpack('<B', self.buffer[4:5])[0])
             tag: int = struct.unpack('<H', self.buffer[5:7])[0]
             other_data: dict = self._parse_data(operation, self.buffer[7:])
@@ -93,10 +94,32 @@ class Py9Server(Py9):
 
         for packet in ret:
             match packet['operation']:
-                case self.TRs.Tversion:
+                case TRs.Tversion:
                     self.handle_Tversion(packet)
-                case self.TRs.Tattach:
+                case TRs.Tauth:
+                    self.handle_Tauth(packet)
+                case TRs.Tattach:
                     self.handle_Tattach(packet)
+                case TRs.Tflush(packet):
+                    self.handle_Tflush(packet)
+                case TRs.Twalk(packet):
+                    self.handle_Twalk(packet)
+                case TRs.Topen(packet):
+                    self.handle_Topen(packet)
+                case TRs.Tcreate(packet):
+                    self.handle_Tcreate(packet)
+                case TRs.Tread(packet):
+                    self.handle_Tread(packet)
+                case TRs.Twrite(packet):
+                    self.handle_Twrite(packet)
+                case TRs.Tclunk(packet):
+                    self.handle_Tclunk(packet)
+                case TRs.Tremove(packet):
+                    self.handle_Tremove(packet)
+                case TRs.Tstat(packet):
+                    self.handle_Tstat(packet)
+                case TRs.Twstat(packet):
+                    self.handle_Twstat(packet)
         return ret
 
     def handle_Tversion(self, d: dict):
@@ -105,11 +128,41 @@ class Py9Server(Py9):
 
         client.socket.sendall(client._encode_Rversion(data['tag']))
 
-    def handle_Tattach(self, d: dict):
-        client = self.clients[d['client_id']]
-        data = d['data']
+    def handle_Tauth(self, d: dict):
+        raise NotImplementedError
 
-        print(d)
+    def handle_Tattach(self, d: dict):
+        raise NotImplementedError
+
+    def handle_Tflush(self, d: dict):
+        raise NotImplementedError
+
+    def handle_Twalk(self, d: dict):
+        raise NotImplementedError
+
+    def handle_Topen(self, d: dict):
+        raise NotImplementedError
+
+    def handle_Tcreate(self, d: dict):
+        raise NotImplementedError
+
+    def handle_Tread(self, d: dict):
+        raise NotImplementedError
+
+    def handle_Twrite(self, d: dict):
+        raise NotImplementedError
+
+    def handle_Tclunk(self, d: dict):
+        raise NotImplementedError
+
+    def handle_Tremove(self, d: dict):
+        raise NotImplementedError
+
+    def handle_Tstat(self, d: dict):
+        raise NotImplementedError
+
+    def handle_Twstat(self, d: dict):
+        raise NotImplementedError
 
     def __del__(self):
         clients = list(self.clients.keys())
